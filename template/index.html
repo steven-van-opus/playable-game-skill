@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Canvas Game Starter</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; padding: 24px; background: #161824; color: #f6f3fa; font: 16px system-ui }
+  main { max-width: 420px; margin: auto }
+  canvas { display: block; width: 100%; height: auto; border: 1px solid #677083; touch-action: none }
+  button { min-height: 44px; margin-top: 12px; padding: 0 16px; font: inherit }
+</style>
+<main>
+  <h1>Canvas Game Starter</h1>
+  <p>Catch the falling dot. Use the arrow keys or drag on the board.</p>
+  <canvas id="game" width="360" height="420" aria-label="Game board"></canvas>
+  <button id="start" type="button">Start game</button>
+  <p id="status" aria-live="polite">Ready</p>
+</main>
+<script>
+  const canvas = document.getElementById('game');
+  const context = canvas.getContext('2d');
+  const status = document.getElementById('status');
+  const start = document.getElementById('start');
+  const paddleY = canvas.height - 40;
+  const keys = new Set();
+  const paddle = { x: canvas.width / 2, width: 56 };
+  const dot = { x: 85, y: 20 };
+  let lastFrame;
+  let score = 0;
+  let active = false;
+
+  function positionPaddle(x) {
+    const half = paddle.width / 2;
+    paddle.x = Math.max(half, Math.min(canvas.width - half, x));
+  }
+
+  function resetDot() {
+    dot.x = 18 + Math.random() * (canvas.width - 36);
+    dot.y = 20;
+  }
+
+  start.addEventListener('click', () => {
+    active = true;
+    score = 0;
+    resetDot();
+    positionPaddle(canvas.width / 2);
+    start.textContent = 'Restart game';
+    status.textContent = 'Score: 0';
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      keys.add(event.key);
+    }
+  });
+  window.addEventListener('keyup', (event) => keys.delete(event.key));
+  window.addEventListener('blur', () => keys.clear());
+  canvas.addEventListener('pointerdown', steer);
+  canvas.addEventListener('pointermove', (event) => {
+    if (event.buttons) steer(event);
+  });
+
+  function steer(event) {
+    const bounds = canvas.getBoundingClientRect();
+    positionPaddle((event.clientX - bounds.left) * canvas.width / bounds.width);
+  }
+
+  function update(seconds) {
+    const direction = Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
+    positionPaddle(paddle.x + direction * 245 * seconds);
+    if (!active) return;
+
+    const previousY = dot.y;
+    dot.y += 150 * seconds;
+    if (previousY < paddleY && dot.y >= paddleY && Math.abs(dot.x - paddle.x) <= paddle.width / 2 + 8) {
+      score += 1;
+      status.textContent = 'Score: ' + score;
+      resetDot();
+    } else if (dot.y > canvas.height + 8) {
+      active = false;
+      status.textContent = 'Game over. Score: ' + score;
+    }
+  }
+
+  function draw() {
+    context.fillStyle = '#24283a';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#f6ab69';
+    context.beginPath();
+    context.arc(dot.x, dot.y, 8, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#99e0db';
+    context.fillRect(paddle.x - paddle.width / 2, paddleY, paddle.width, 10);
+  }
+
+  function frame(now) {
+    const seconds = lastFrame === undefined ? 0 : Math.min((now - lastFrame) / 1000, 0.05);
+    lastFrame = now;
+    update(seconds);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</html>
